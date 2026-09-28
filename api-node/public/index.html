@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Analizador Anti-Phishing</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+  h1 { font-size: 1.4rem; }
+  input { width: 100%; padding: 10px; font-size: 1rem; box-sizing: border-box; }
+  button { margin-top: 10px; padding: 10px 20px; font-size: 1rem; cursor: pointer; }
+  .result { margin-top: 20px; padding: 16px; border-radius: 8px; }
+  .seguro { background: #e6f4ea; border: 1px solid #34a853; }
+  .sospechoso { background: #fff8e1; border: 1px solid #f9ab00; }
+  .peligroso { background: #fce8e6; border: 1px solid #d93025; }
+  .invalida { background: #eee; border: 1px solid #999; }
+  ul { margin: 8px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+  <h1>🔍 Analizador de enlaces sospechosos</h1>
+  <p>Pega una URL recibida por correo, WhatsApp, etc. para verificar si es segura.</p>
+  <input id="urlInput" type="text" placeholder="https://ejemplo.com" />
+  <button onclick="analizar()">Analizar enlace</button>
+  <div id="output"></div>
+
+  <hr style="margin:30px 0" />
+
+  <h1>📎 Analizador de adjuntos</h1>
+  <p>Sube una foto, video u otro archivo para verificar que no traiga malware.</p>
+  <input id="fileInput" type="file" />
+  <button onclick="analizarAdjunto()">Analizar adjunto</button>
+  <div id="fileOutput"></div>
+
+  <script>
+    async function analizar() {
+      const url = document.getElementById("urlInput").value.trim();
+      const output = document.getElementById("output");
+      if (!url) return;
+      output.innerHTML = "Analizando...";
+      try {
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        output.innerHTML = `
+          <div class="result ${data.verdict}">
+            <strong>Veredicto: ${data.verdict.toUpperCase()}</strong> (riesgo: ${data.score}/100)
+            <ul>${(data.reasons || []).map((r) => `<li>${r}</li>`).join("")}</ul>
+          </div>
+        `;
+      } catch (e) {
+        output.innerHTML = "Error al conectar con el servicio.";
+      }
+    }
+
+    async function analizarAdjunto() {
+      const input = document.getElementById("fileInput");
+      const output = document.getElementById("fileOutput");
+      if (!input.files.length) return;
+      output.innerHTML = "Analizando...";
+      const formData = new FormData();
+      formData.append("file", input.files[0]);
+      try {
+        const res = await fetch("/api/analyze-attachment", { method: "POST", body: formData });
+        const data = await res.json();
+        output.innerHTML = `
+          <div class="result ${data.verdict}">
+            <strong>Veredicto: ${data.verdict.toUpperCase()}</strong> (riesgo: ${data.score}/100)
+            <ul>${(data.reasons || []).map((r) => `<li>${r}</li>`).join("")}</ul>
+          </div>
+        `;
+      } catch (e) {
+        output.innerHTML = "Error al conectar con el servicio.";
+      }
+    }
+  </script>
+</body>
+</html>

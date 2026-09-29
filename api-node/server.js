@@ -6,6 +6,7 @@
  *   POST /api/analyze              { "url": "..." }            -> analiza una URL
  *   POST /api/analyze-batch        { "urls": ["...", "..."] }   -> analiza varias URLs
  *   POST /api/analyze-attachment   multipart/form-data, campo "file" -> analiza un adjunto
+ *   POST /slack/events                                           -> integración con Slack (ver slackIntegration.js)
  *   GET  /api/health                                             -> estado del servicio
  *
  * Para usarlo desde correo/WhatsApp/etc.: cada vez que llegue un mensaje con
@@ -19,11 +20,13 @@ const multer = require("multer");
 const { analyzeUrl } = require("./phishingDetector");
 const { analyzeAttachment } = require("./attachmentValidator");
 const { scanBuffer } = require("./malwareScanner");
+const { manejarEventoSlack } = require("./slackIntegration");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const app = express();
-app.use(express.json());
+// Guarda el cuerpo crudo del request (necesario para verificar la firma de Slack)
+app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } }));
 app.use(express.static("public"));
 
 app.get("/api/health", (_req, res) => {
@@ -80,6 +83,8 @@ app.post("/api/analyze-attachment", upload.single("file"), async (req, res) => {
     detail: { structural, malwareScan: scan },
   });
 });
+
+app.post("/slack/events", manejarEventoSlack);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
